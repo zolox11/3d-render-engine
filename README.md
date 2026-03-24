@@ -98,8 +98,8 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
 ## ⚡ Getting Started
 
 ### 1. Clone the repository
-git clone https://github.com/your-username/aaa-renderer.git
-cd aaa-renderer
+git clone https://github.com/zolox11/3d-render-engine.git
+cd 3d-render-engine
 
 ### 2. Create a virtual environment
 python -m venv venv
@@ -124,9 +124,9 @@ python main.py
 
 | Input        | Action        |
 |--------------|--------------|
-| W / A / S / D | Move camera |
-| Mouse        | Look around |
-| ESC          | Exit        |
+| W / A / S / D / Q / E | Move camera |
+| Mouse                 | Look around |
+| ESC/ESCAPE                  | Exit        |
 
 ---
 
