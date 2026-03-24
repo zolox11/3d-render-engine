@@ -1,0 +1,6 @@
+pygame
+moderngl
+numpy
+pyrr
+gltflib
+pillow

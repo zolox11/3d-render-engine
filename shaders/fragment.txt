@@ -1,0 +1,226 @@
+#version 330 core
+
+in vec2 v_uv;
+in vec3 v_world_pos;
+in mat3 TBN;
+in vec3 v_normal;
+
+out vec4 f_color;
+
+// Textures
+uniform sampler2D texture0;      // Albedo
+uniform sampler2D texture1;      // Metallic (R), Roughness (G), AO (B)
+uniform sampler2D texture2;      // Normal map
+uniform sampler2D texture3;      // Emissive Map (Eyes)
+uniform sampler2D shadowMap;     // Shadow Map (Depth Texture)
+
+// Matrices & Vectors
+uniform vec3 cam_pos;
+uniform mat4 lightSpaceMatrix;
+
+// Uniforms
+uniform vec3 u_color;
+uniform bool u_use_color;
+uniform float u_roughness_offset;  // Legacy - kept for compatibility
+
+// Per-object material overrides
+uniform float u_roughness_override;
+uniform float u_metallic_override;
+uniform vec3 u_emissive_override;
+uniform float u_ao_override;
+
+#define MAX_LIGHTS 8
+#define LIGHT_DIRECTIONAL 0
+#define LIGHT_POINT 1
+
+struct Light {
+    int type;
+    vec3 position;
+    vec3 direction;
+    vec3 color;
+    float intensity;
+};
+
+uniform int light_count;
+uniform Light lights[MAX_LIGHTS];
+
+const float PI = 3.14159265359;
+const float SHADOW_BIAS = 0.005;
+
+// Random function for shadow dithering
+float random(vec3 seed) {
+    return fract(sin(dot(seed, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+}
+
+// --- OPTIMIZED SHADOW CALCULATION WITH PCF ---
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 N, vec3 L) {
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    
+    // Out of shadow map bounds
+    if(projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0) 
+        return 0.0;
+    
+    // Adaptive bias based on surface angle
+    float cosAngle = dot(N, L);
+    float bias = max(SHADOW_BIAS * (1.0 - cosAngle), 0.0005);
+    
+    // PCF with 5x5 kernel for soft shadows
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    int samples = 0;
+    
+    for(int x = -2; x <= 2; x++) {
+        for(int y = -2; y <= 2; y++) {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += (projCoords.z - bias > pcfDepth) ? 1.0 : 0.0;
+            samples++;
+        }
+    }
+    
+    return shadow / float(samples);
+}
+
+// --- PBR FUNCTIONS ---
+vec3 ACESToneMapping(vec3 x) {
+    const float A = 2.51;
+    const float B = 0.03;
+    const float C = 2.43;
+    const float D = 0.59;
+    const float E = 0.14;
+    return clamp((x * (A * x + B)) / (x * (C * x + D) + E), 0.0, 1.0);
+}
+
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+    float denom = NdotH2 * (a2 - 1.0) + 1.0;
+    return a2 / (PI * denom * denom);
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    return NdotV / (NdotV * (1.0 - k) + k);
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    return GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// Roughness remapping for more natural control
+float remapRoughness(float roughness) {
+    return roughness * roughness; // Perceptually linear roughness
+}
+
+void main() {
+    // --- NORMAL MAPPING ---
+    vec3 normal_map = texture(texture2, v_uv).rgb;
+    vec3 N;
+    
+    if(length(normal_map) < 0.1) {
+        N = normalize(v_normal);
+    } else {
+        normal_map = normal_map * 2.0 - 1.0;
+        normal_map.y = -normal_map.y; // Flip Y for OpenGL convention
+        N = normalize(TBN * normal_map);
+    }
+    
+    vec3 V = normalize(cam_pos - v_world_pos);
+    
+    // --- MATERIAL PROPERTIES ---
+    vec3 albedo;
+    float metallic, roughness, ao;
+    
+    if(u_use_color) {
+        albedo = pow(u_color, vec3(2.2));
+        metallic = u_metallic_override >= 0.0 ? u_metallic_override : 0.0;
+        roughness = u_roughness_override >= 0.0 ? u_roughness_override : 0.7;
+        ao = u_ao_override >= 0.0 ? u_ao_override : 1.0;
+    } else {
+        albedo = pow(texture(texture0, v_uv).rgb, vec3(2.2));
+        vec4 mra = texture(texture1, v_uv);
+        metallic = u_metallic_override >= 0.0 ? u_metallic_override : mra.r;
+        roughness = u_roughness_override >= 0.0 ? u_roughness_override : clamp(mra.g + u_roughness_offset, 0.05, 1.0);
+        ao = u_ao_override >= 0.0 ? u_ao_override : mra.b;
+    }
+    
+    roughness = remapRoughness(roughness);
+    
+    // --- LIGHTING CALCULATIONS ---
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 Lo = vec3(0.0);
+    
+    // Shadow calculation (for directional light)
+    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(v_world_pos, 1.0);
+    float shadowAmount = 0.0;
+    
+    for(int i = 0; i < light_count; i++) {
+        vec3 L;
+        float attenuation = 1.0;
+        float distance = 0.0;
+        
+        if(lights[i].type == LIGHT_DIRECTIONAL) {
+            L = normalize(-lights[i].direction);
+            // Only shadow the first directional light
+            if(i == 0) {
+                shadowAmount = ShadowCalculation(fragPosLightSpace, N, L);
+            }
+        } else {
+            vec3 toLight = lights[i].position - v_world_pos;
+            distance = length(toLight);
+            L = normalize(toLight);
+            // Quadratic falloff with range
+            attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+        }
+        
+        vec3 H = normalize(V + L);
+        float NdotL = max(dot(N, L), 0.0);
+        float NdotV = max(dot(N, V), 0.0001);
+        
+        // Radiance from light
+        vec3 radiance = lights[i].color * lights[i].intensity * attenuation;
+        
+        // Cook-Torrance BRDF
+        float D = DistributionGGX(N, H, roughness);
+        float G = GeometrySmith(N, V, L, roughness);
+        vec3 F = fresnelSchlick(max(dot(H, L), 0.0), F0);
+        
+        vec3 kS = F;
+        vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+        
+        vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);
+        
+        // Apply shadow only to directional light
+        float shadowFactor = (i == 0) ? (1.0 - shadowAmount) : 1.0;
+        
+        Lo += shadowFactor * (kD * albedo / PI + specular) * radiance * NdotL;
+    }
+    
+    // --- AMBIENT & FINAL COMPOSITING ---
+    vec3 emissive = pow(texture(texture3, v_uv).rgb, vec3(2.2)) * 1.5;
+    // Apply emissive override if set (additive to texture)
+    if(length(u_emissive_override) > 0.0) {
+        emissive += u_emissive_override;
+    }
+    
+    // Enhanced ambient calculation for better model visibility
+    vec3 ambient = vec3(0.12) * albedo * ao;  // Increased base ambient
+    ambient += vec3(0.08) * albedo; // Enhanced fill light for dark models
+    
+    vec3 color = ambient + Lo + emissive;
+    
+    // --- TONE MAPPING & GAMMA CORRECTION ---
+    color = ACESToneMapping(color);
+    color = pow(color, vec3(1.0 / 2.2));
+    
+    f_color = vec4(color, 1.0);
+}

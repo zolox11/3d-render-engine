@@ -1,0 +1,57 @@
+3d render engine from scratch using opengl (moderngl) and pygame
+
+notes - 
+
+what i want to make first - 
+
+- a 3d rotating cube with vertex and fragment shaders - done - easy, ive done it before
+- a 3d rotating pyramid using the same shaders - done, pyramid became hexagon somehow, but i fixed it
+- upgrading the fragment shaders to make them have seperate colors - done, was pretty easy
+- adding camera movement with wasd keys and mouse - done
+- making vertex and fragment shaders into seperate txt files inside shaders folder - done - easiest thing ive done for now
+- making camera into seperate camera.py and add q and e to look up and down - done
+
+version 2 -
+
+- i want to add obj files but it's too hard to parse and make into a shape ig, so i went with glb/gltf instead
+
+what i want to make now - 
+
+- trying to add textures - done, used pillow and added a minecraft grass block texture onto the cube, i seperated it because it was applying to all the shapes, so now each shape has seperate configuration in shader
+- deciding how i can parse and render glb models- went with pygltflib
+- writing loader.py - done
+- making main.py use loader.py - done
+- rendering a glb file with lots of triangles, vertices and stuff - done, after rewriting the loader 5 times, but textures wont work yet.
+- updating loader to find textures, uv, and updating shaders a bit because its laggy - done
+- adding textures - i first used the textures that came with the glb, but after getting a lot of melted weird textures, i found out the glb had textures inside the files, so now the textures work
+- making shaders support pbr like normal, metallic, rough maps - done, updated shaders, then i had to send it the textures, so updated loader to send to main script, then main sends to shader.
+
+- Finished : version 2 is good, there is pbr shaders now.
+
+version 3 - 
+
+what i want to make -
+
+- rendering a spiderman glb model - finally done, when i first imported it,the eyes were missing, it was weird, the textures were not proper. so i thought it was shader problem, updated the shaders a lot of times, but after all that. I updated the loader to use a proper node workflow and handle nodes like the eyes, body, face seperately, so they don't get mixed up when rendering, and it finally worked,
+- making objects.py - done, it basically has classes that main script uses to create cube or gblobject.
+- adding lights - done, first i updated the vortex shaders to properly send normals to fragment, then i updated fragment shaders. then i added support for point light, sun light, and directional light.
+- adding lights to objects.py - done, before it was messy because main.py was manually creating everything, so i switched to objects.py for the lights.
+- adding a grid - done, i created grid vertex and fragment shaders, added a class to main script, and just rendered it before all my main stuff.
+- cleaning up main.py, making it modular - done, made main.py modular, added configuration class, made everything object oriented.
+- rendering a captain america glb model - done, i thought it would be just adding a few lines to main script to add him, but he was way too shiny, so i had to decrease metallic and increase roughness, but that made spiderman look weird, so i updated fragment shaders and objects.py, and now i can set roughness, metallic, emmisive for each object seperately.
+
+- Finished : version 3 is better, the more modular code allows expansion.
+
+version 4 - 
+
+what i want to make -
+
+- adding shadows - done, biggest upgrade, i didn't think shadows would be this hard, the shadows work but not directional yet. so first i updated shaders and added ao to control the shadow for each object, next i created seperate shader files for shadow, then the shadows were fully black, not proper, so i upgraded the loader to properly send data to main. then in main i added shadowpasser, and had to add render shadow to lights and objects.
+- upgrading all the code - done, made all the scripts more advanced, more modular, and made the speed go up, speed was a big problem, so i optimized it a lot.
+- making it look better - done, even with shadows and pbr it looked like a old game. so i upgraded fragment shaders a lot, it went from 120 lines to 200+, added a lot of stuff, and post proccesing
+- adding joystick control in camera.py for some reason - done, didn't touch it for a while, so i added a cool feature, only works with ps controllers, and is buggy, might expand later.
+- making scene setup into scene.py - done, main.py was a lot of lines beacause of scene setup, so i just made the scene init function into a seperate script.
+- made a cool sample scene - done, downloaded glb models of iron man, thor, thanos, and hulk. and make like a normal scene, it looks weird because most of them are in a t-pose, and that gave me an idea to add skeletal posing and stuff later.
+
+- Finished : version 4 - version 4 made the code very big, but it's for good reason, because i could add a scene editor later because of the seperate scene.py, it's a cool idea, because i have to manually set each scale, position, rotation and material settings for each model, but that should wait.
+
