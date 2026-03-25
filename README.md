@@ -43,6 +43,19 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
   - Plane
   - Grid
 
+### 🚀 Physics
+- AABB Collision Detection
+- Smooth Gravity
+- Penentration
+
+### Player Controller
+- WASD + Mouse Movement and Camera
+- First Person Controller
+- Smooth Jumping Physics
+- Sprinting
+- PS Controller Support
+
+
 ### 🎥 Camera System
 - WASD movement
 - Mouse look

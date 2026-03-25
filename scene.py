@@ -1,9 +1,10 @@
 import numpy as np
-from pyrr import Matrix44
+from pyrr import Matrix44, Vector3
 
-from objects import Scene, GLBObject, DirectionalLight, PointLight, Plane
+from objects import Scene, GLBObject, DirectionalLight, PointLight, Cube, Plane
 from loader import load_model
 from camera import Camera
+
 
 
 def init_scene(ctx, program, config):
@@ -11,24 +12,33 @@ def init_scene(ctx, program, config):
 
     # ================= OBJECTS =================
 
-    ironman = GLBObject(load_model, ctx, program, "models/iron_man.glb")
-    ironman.set_position(-2.2, 0, 1.2)
-    ironman.set_scale(0.001, 0.001, 0.001)
-    ironman.set_rotation(0, np.pi / 6, 0)
-    ironman.set_roughness(0.4)
-    ironman.set_metallic(1.0)
-    ironman.set_ao(1.0)
-    scene.add(ironman)
+    cube = Cube(ctx, program, color=(0.8, 0.3, 0.3))
+    cube.set_position(0, 0.5, 0)
+    cube.set_scale(1, 1, 1)
+    cube.set_roughness(0.5)
+    cube.set_metallic(0.0)
+    cube.set_ao(1.0)
+    scene.add(cube)
+
+    spiderman = GLBObject(load_model,ctx, program, "models/spiderman.glb")
+    spiderman.set_position(2, 0, 0)
+    spiderman.set_scale(1.5, 1.5, 1.5)
+    spiderman.set_rotation(-np.pi / 2, 0, 0)
+    scene.add(spiderman)
 
     # ================= FLOOR =================
 
-    floor = Plane(ctx, program, size=config.FLOOR_SIZE, color=(0.2, 0.2, 0.2))
+    floor = Plane(ctx, program, size=config.FLOOR_SIZE, color=(0.2, 0.2, 0.5))
     floor.set_position(0, -0.5, 0)
     floor.set_roughness(0.9)
     floor.set_metallic(0.0)
     floor.set_ao(1.0)
+    floor.physics_enabled = False
+    floor.gravity_enabled = False
+    floor.mass = 0.0
+    floor.collidable = True
+    floor.collider_half_size = Vector3((config.FLOOR_SIZE * 0.5, 0.1, config.FLOOR_SIZE * 0.5))
     scene.add(floor)
-
     # ================= LIGHTING =================
 
     sun = DirectionalLight(

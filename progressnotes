@@ -55,3 +55,11 @@ what i want to make -
 
 - Finished : version 4 - version 4 made the code very big, but it's for good reason, because i could add a scene editor later because of the seperate scene.py, it's a cool idea, because i have to manually set each scale, position, rotation and material settings for each model, but that should wait.
 
+version 5 -
+
+what i want to make - 
+
+- physics - done, added aabb collisions, then gravity.
+- adding player controller - done, took way too long, had to revamp the physics system a lot of times.
+- improving player controller - done, added more configuration, jumping, sprinting.
+- improving physics - done, it felt like i was floating when i jumped, so i added realistic and smooth mass gravity.

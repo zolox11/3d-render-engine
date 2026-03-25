@@ -5,10 +5,11 @@ import numpy as np
 from pyrr import Matrix44, Vector3
 import sys
 
-from camera import Camera
 from loader import load_model
 from objects import Scene, GLBObject, DirectionalLight, PointLight, Cube, Plane
 from scene import init_scene
+from physics import PhysicsEngine
+from player import PlayerController
 
 # =====================================================
 # CONFIGURATION
@@ -372,6 +373,14 @@ class Application:
             self.config
         )
 
+        # Initialize physics engine and player controller
+        self.physics_engine = PhysicsEngine()
+        self.player = PlayerController(self.camera, self.physics_engine, self.scene, start_position=(0.0, 50, 5.0))
+        # register all scene objects once at startup
+        self.physics_engine.load_scene(self.scene)
+        # register the player in physics engine
+        self.physics_engine.register_body(self.player.body)
+
     def handle_events(self):
         """Process input events"""
         for event in pygame.event.get():
@@ -382,13 +391,13 @@ class Application:
                     self.running = False
                 elif event.key == pygame.K_F1 and self.config.SHOW_PERFORMANCE:
                     pass  # Could toggle perf display here
-
+    
     def update(self, dt):
-        """Update game logic"""
-        # Handle input
-        keys = pygame.key.get_pressed()
-        self.camera.process_keyboard(keys, dt)
-        self.camera.process_mouse(*pygame.mouse.get_rel())
+        self.player.process_input(dt)
+
+        self.physics_engine.step(dt)
+
+        self.player.update_camera()
 
     def render(self):
         """Render frame"""
@@ -433,13 +442,8 @@ class Application:
 # =====================================================
 # ENTRY POINT
 # =====================================================
+
 if __name__ == "__main__":
-    try:
-        app = Application(Config)
-        app.run()
-    except Exception as e:
-        print(f"❌ Fatal Error: {e}")
-        import traceback
-        traceback.print_exc()
-        pygame.quit()
-        sys.exit(1)
+    config = Config()
+    app = Application(config)
+    app.run()

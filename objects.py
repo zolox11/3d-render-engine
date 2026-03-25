@@ -62,6 +62,21 @@ class Object3D:
         self.cast_shadow = True
         self.receive_shadow = True
 
+        # Physics properties
+        self.physics_enabled = False
+        self.gravity_enabled = False
+        self.gravity_strength = 1.0
+        self.collidable = True
+        self.mass = 0.0  # mass=0 means static body
+        self.velocity = Vector3((0.0, 0.0, 0.0))
+        self.on_ground = False
+        self.linear_damping = 4.0
+        self.ground_timer = 0.0
+        self.ground_time_buffer = 0.1  # keep on_ground true for a short window after last touch
+
+        # Collider AABB half extents in local space
+        self.collider_half_size = Vector3((0.5, 0.5, 0.5))
+
     def set_position(self, x, y, z):
         self.transform.position = Vector3([x, y, z])
 
@@ -107,6 +122,12 @@ class GLBObject(Object3D):
         super().__init__(model)
         self.cast_shadow = True
         self.receive_shadow = True
+        self.physics_enabled = False
+        self.gravity_enabled = False
+        self.mass = 0.0
+        self.collidable = True
+        # default approximate GLB collider, can be refined by user
+        self.collider_half_size = Vector3((1.0, 1.0, 1.0))
 
     # ---- Direct access shortcuts ----
     @property
@@ -227,6 +248,13 @@ class Cube(Object3D):
             ibo
         )
 
+        # Physics defaults for cube collider
+        self.physics_enabled = False
+        self.gravity_enabled = False
+        self.mass = 0.0
+        self.collidable = True
+        self.collider_half_size = Vector3((1.0, 1.0, 1.0))
+
     def render(self, program, proj, view):
         self.texture.use(location=0)
         
@@ -253,7 +281,10 @@ class Cube(Object3D):
         if "model" in program:
             program["model"].write(model_matrix.astype("f4").tobytes())
 
+        # Render cube without face culling
+        self.ctx.disable(moderngl.CULL_FACE)
         self.vao.render()
+        self.ctx.enable(moderngl.CULL_FACE)
 
 
 # -------------------------
@@ -303,6 +334,13 @@ class Plane(Object3D):
             [(vbo, "3f 3f 2f 3f", "in_position", "in_normal", "in_uv", "in_tangent")],
             ibo
         )
+
+        # Physics defaults for plane collider
+        self.physics_enabled = False
+        self.gravity_enabled = False
+        self.mass = 0.0
+        self.collidable = True
+        self.collider_half_size = Vector3((size, 0.05, size))
 
     def render(self, program, proj, view):
         # Bind all textures to correct slots
