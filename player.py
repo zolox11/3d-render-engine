@@ -1,6 +1,7 @@
 import pygame
 from pyrr import Vector3
 from objects import Object3D
+import numpy as np
 
 
 def _clamp(value, min_value, max_value):
@@ -19,7 +20,7 @@ class PlayerController:
         # -------------------------
         # Player settings
         # -------------------------
-        self.height = 2
+        self.height = 1.5
         self.radius = 0.35
 
         self.walk_speed = 5.5
@@ -42,8 +43,16 @@ class PlayerController:
         self.body.mass = 3
         self.body.linear_damping = 6
 
-        # 🔥 FIX: grounding buffer
-        
+        # -------------------------
+        # Orbit camera settings
+        # -------------------------
+        self.orbit_mode = False
+        self.orbit_distance = 20.0
+        self.orbit_theta = 0.0  # horizontal rotation
+        self.orbit_phi = 30.0   # vertical rotation
+        self.orbit_center = Vector3((0.0, 0.0, 0.0))
+        self.orbit_sensitivity = 0.3
+        self.orbit_pan_speed = 10.0  # speed to move orbit center
 
         # Camera height
         self.eye_height = 1.6
@@ -54,9 +63,7 @@ class PlayerController:
         # Prevent initial mouse jump
         pygame.mouse.get_rel()
 
-        # -------------------------
-        # 🔥 FIX: Register scene ONCE
-        # -------------------------
+        # Register scene once
         self.physics_engine.register_body(self.body)
         self.scene = scene
         self.body.velocity.y = self.jump_speed
@@ -73,35 +80,75 @@ class PlayerController:
             joystick = pygame.joystick.Joystick(0)
             joystick.init()
 
-        # Mouse look (keyboard/mouse fallback)
+        # Mouse look
         dx, dy = pygame.mouse.get_rel()
 
-        # Right stick look (override/add if controller present)
+        # Right stick look (controller)
         if joystick:
-            # Right stick axes (commonly 2 = right x, 3 = right y)
             rx = joystick.get_axis(2)
             ry = joystick.get_axis(3)
-
-            # Deadzone
             deadzone = 0.1
             if abs(rx) < deadzone:
                 rx = 0.0
             if abs(ry) < deadzone:
                 ry = 0.0
-
-            dx += rx * 10.0  # scale sensitivity
+            dx += rx * 10.0
             dy += ry * 10.0
 
-        # Apply mouse + right stick look
+        # -------------------------
+        # ORBIT CAMERA INPUT
+        # -------------------------
+        if self.orbit_mode == True:
+            # Mouse rotates orbit camera
+            self.orbit_theta += dx * self.orbit_sensitivity
+            self.orbit_phi -= dy * self.orbit_sensitivity
+            self.orbit_phi = _clamp(self.orbit_phi, 5.0, 85.0)
+
+            # WASD / left stick moves orbit center
+            move = Vector3((0.0, 0.0, 0.0))
+            # Horizontal movement relative to camera
+            if keys[pygame.K_w]:
+                move += self.camera.front
+            if keys[pygame.K_s]:
+                move -= self.camera.front
+            if keys[pygame.K_a]:
+                move -= self.camera.right
+            if keys[pygame.K_d]:
+                move += self.camera.right
+            # Vertical movement
+            if keys[pygame.K_q]:  # Q = down
+                move -= Vector3((0.0, 1.0, 0.0))
+            if keys[pygame.K_e]:  # E = up
+                move += Vector3((0.0, 1.0, 0.0))
+
+            # Controller left stick
+            if joystick:
+                lx = joystick.get_axis(0)
+                ly = joystick.get_axis(1)
+                deadzone = 0.1
+                if abs(lx) >= deadzone:
+                    move += self.camera.right * lx
+                if abs(ly) >= deadzone:
+                    move -= self.camera.front * ly
+
+            if move.length > 0:
+                move = move.normalized
+                self.orbit_center += move * self.orbit_pan_speed * dt
+
+            # Update camera position
+            self.update_orbit_camera(dt)
+            return  # skip normal player movement
+
+        # -------------------------
+        # NORMAL FIRST-PERSON INPUT
+        # -------------------------
         self.camera.yaw += dx * self.mouse_sensitivity
         self.camera.pitch -= dy * self.mouse_sensitivity
         self.camera.pitch = _clamp(self.camera.pitch, -89.0, 89.0)
         self.camera._update_vectors()
 
-        # Movement input (keyboard + left stick)
+        # Movement input
         move = Vector3((0.0, 0.0, 0.0))
-
-        # Keyboard movement
         if keys[pygame.K_w]:
             move += self.camera.front
         if keys[pygame.K_s]:
@@ -111,37 +158,28 @@ class PlayerController:
         if keys[pygame.K_d]:
             move += self.camera.right
 
-        # Controller left stick
         if joystick:
             lx = joystick.get_axis(0)
             ly = joystick.get_axis(1)
-
             deadzone = 0.1
-            if abs(lx) < deadzone:
-                lx = 0.0
-            if abs(ly) < deadzone:
-                ly = 0.0
-
-            move += self.camera.right * lx
-            move -= self.camera.front * ly
+            if abs(lx) >= deadzone:
+                move += self.camera.right * lx
+            if abs(ly) >= deadzone:
+                move -= self.camera.front * ly
 
         move.y = 0.0
-
-        if move.length > 0.0:
+        if move.length > 0:
             move = move.normalized
 
-        # Sprint: keyboard (LShift) OR R2 trigger
+        # Sprint
         sprint = keys[pygame.K_LSHIFT]
-
         if joystick:
-            # R2 is often axis 5 (ranges from -1 to 1 depending on driver)
             r2 = joystick.get_axis(5)
             if r2 > 0.5:
                 sprint = True
 
         target_speed = self.run_speed if sprint else self.walk_speed
         target_velocity = move * target_speed
-
         lerp_t = _clamp(dt * self.smooth_accel, 0.0, 1.0)
 
         self.smoothed_input = Vector3((
@@ -151,8 +189,6 @@ class PlayerController:
         ))
 
         on_ground = self.body.on_ground
-
-        # Apply horizontal movement
         air_factor = self.air_control if not on_ground else 1.0
 
         self.body.velocity.x = _lerp(
@@ -160,30 +196,59 @@ class PlayerController:
             self.smoothed_input.x * air_factor,
             lerp_t
         )
-
         self.body.velocity.z = _lerp(
             self.body.velocity.z,
             self.smoothed_input.z * air_factor,
             lerp_t
         )
 
-        # Jump: Space OR X button (button 0 on DS4 via DS4Windows)
+        # Jump
         jump_pressed = keys[pygame.K_SPACE]
-
         if joystick:
             if joystick.get_numbuttons() > 0:
-                if joystick.get_button(0):  # X button
+                if joystick.get_button(0):
                     jump_pressed = True
-
         if jump_pressed and self.body.on_ground:
             self.body.velocity.y = self.jump_speed
-    
-    def update_camera(self):
-        self.camera.position = Vector3((
-            self.body.transform.position.x,
-            self.body.transform.position.y + self.eye_height,
-            self.body.transform.position.z
-        ))
+
+    # -------------------------
+    # ORBIT CAMERA FUNCTIONS
+    # -------------------------
+    def toggle_orbit(self, enable=None):
+        if enable is None:
+            self.orbit_mode = not self.orbit_mode
+        else:
+            self.orbit_mode = enable
+
+    def update_orbit_camera(self, dt=None):
+        phi_rad = np.radians(self.orbit_phi)
+        theta_rad = np.radians(self.orbit_theta)
+
+        x = self.orbit_center.x + self.orbit_distance * np.sin(phi_rad) * np.cos(theta_rad)
+        y = self.orbit_center.y + self.orbit_distance * np.cos(phi_rad)
+        z = self.orbit_center.z + self.orbit_distance * np.sin(phi_rad) * np.sin(theta_rad)
+
+        self.camera.position = Vector3((x, y, z))
+
+        front = self.orbit_center - self.camera.position
+        if front.length > 0:
+            self.camera.front = front.normalized
+
+        self.camera.right = self.camera.front.cross(Vector3((0.0, 1.0, 0.0))).normalized
+        self.camera.up = self.camera.right.cross(self.camera.front).normalized
+
+    # -------------------------
+    # UPDATE CAMERA
+    # -------------------------
+    def update_camera(self, dt=None):
+        if self.orbit_mode:
+            self.update_orbit_camera(dt)
+        else:
+            self.camera.position = Vector3((
+                self.body.transform.position.x,
+                self.body.transform.position.y + self.eye_height,
+                self.body.transform.position.z
+            ))
 
     # -------------------------
     # TELEPORT

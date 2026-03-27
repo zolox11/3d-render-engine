@@ -10,6 +10,7 @@ from objects import Scene, GLBObject, DirectionalLight, PointLight, Cube, Plane
 from scene import init_scene
 from physics import PhysicsEngine
 from player import PlayerController
+from texture import TerrainTexturer # Make sure to import it!
 
 # =====================================================
 # CONFIGURATION
@@ -18,7 +19,7 @@ class Config:
     """Centralized configuration management"""
     WINDOW_WIDTH = 1280
     WINDOW_HEIGHT = 720
-    WINDOW_TITLE = "AAA Renderer"
+    WINDOW_TITLE = "ysf-3d-x"
     FPS_TARGET = 360
     
     # OpenGL Settings
@@ -26,7 +27,7 @@ class Config:
     GL_MINOR_VERSION = 3
     
     # Rendering
-    SHADOW_MAP_SIZE = 2048
+    SHADOW_MAP_SIZE = 1024
     USE_VSYNC = True
     ENABLE_GRID = True
     
@@ -46,6 +47,29 @@ class Config:
     DEBUG_MODE = False
     SHOW_PERFORMANCE = True
 
+def create_1x1_texture(ctx, color):
+    import numpy as np
+    tex_data = np.array(color, dtype=np.uint8)
+    tex = ctx.texture((1, 1), 4, tex_data.tobytes())
+    tex.build_mipmaps()
+    tex.repeat_x = True
+    tex.repeat_y = True
+    return tex
+
+
+def load_texture_safe(ctx, path, fallback):
+    from PIL import Image
+    try:
+        img = Image.open(path).convert("RGBA")
+        tex = ctx.texture(img.size, 4, img.tobytes())
+        tex.build_mipmaps()
+        tex.repeat_x = True
+        tex.repeat_y = True
+        print(f"✅ Loaded texture: {path}")
+        return tex
+    except Exception as e:
+        print(f"⚠️ Using fallback for {path}: {e}")
+        return fallback
 
 # =====================================================
 # UTILITY CLASSES
@@ -153,7 +177,7 @@ class Renderer:
 
     def begin_frame(self):
         """Prepare for rendering"""
-        self.ctx.clear(0.15, 0.15, 0.15, 1.0)
+        self.ctx.clear(0.53, 0.81, 0.92, 1.0)
 
     def render_frame(self, scene, camera, proj):
         """Execute complete render pipeline"""
@@ -372,10 +396,14 @@ class Application:
             self.main_program,
             self.config
         )
+        self.terrain_texturer = TerrainTexturer(self.ctx, self.main_program)
+        self.terrain_texturer.setup_terrain()
+        self.terrain_texturer.set_params()
 
         # Initialize physics engine and player controller
         self.physics_engine = PhysicsEngine()
         self.player = PlayerController(self.camera, self.physics_engine, self.scene, start_position=(0.0, 50, 5.0))
+        
         # register all scene objects once at startup
         self.physics_engine.load_scene(self.scene)
         # register the player in physics engine
@@ -401,6 +429,7 @@ class Application:
 
     def render(self):
         """Render frame"""
+        self.terrain_texturer.bind()
         self.renderer.render_frame(self.scene, self.camera, self.proj)
 
     def display_performance(self):

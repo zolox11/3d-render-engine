@@ -1,44 +1,59 @@
 import numpy as np
 from pyrr import Matrix44, Vector3
 
-from objects import Scene, GLBObject, DirectionalLight, PointLight, Cube, Plane
+from objects import Scene, GLBObject, DirectionalLight, PointLight, Cube, Plane, TerrainObject
 from loader import load_model
 from camera import Camera
+import terrain
+
+terrain_toggle = False
 
 
 
 def init_scene(ctx, program, config):
     scene = Scene(ctx)
 
+    if terrain_toggle == True:
+        terrain = TerrainObject(ctx,program,"height1.png",size=300,height_scale=40,resolution=1.5,texture_tiling=500.0)
+        terrain.set_roughness(1)
+        terrain.set_metallic(0)
+        terrain.set_ao(0.4)
+        scene.add(terrain)
+    else:
+        spiderman = GLBObject(load_model,ctx, program, "models/spiderman.glb")
+        spiderman.set_position(0, -0.5, 0)
+        spiderman.set_rotation(-np.pi / 2, 0, 0)
+        spiderman.set_scale(1.25,1.25,1.25)
+        spiderman.set_roughness(1)
+        spiderman.set_metallic(0)
+        spiderman.set_ao(1)
+        scene.add(spiderman)
+
+        tree = GLBObject(load_model,ctx, program, "models/tree.glb")
+        tree.set_position(5, -0.5, 5)
+        tree.set_rotation(0, 0, 0)
+        tree.set_scale(0.05,0.05,0.05)
+        tree.set_roughness(1)
+        tree.set_metallic(0)
+        tree.set_ao(1)
+        tree.collidable = True
+        tree.collider_half_size = Vector3((1.5, 3.0, 1.5))
+        scene.add(tree)
+
+
+        floor = Plane(ctx,program,size=config.FLOOR_SIZE,texture_path="textures/grass.png", tiling=1.0)
+        floor.set_position(0,-0.5,0)
+        floor.set_roughness(1)
+        floor.set_metallic(0)
+        floor.set_ao(0.4)
+        floor.collidable = True
+        floor.collider_half_size = Vector3((config.FLOOR_SIZE * 0.5, 0.5, config.FLOOR_SIZE * 0.5))
+        scene.add(floor)
+
+
+
     # ================= OBJECTS =================
-
-    cube = Cube(ctx, program, color=(0.8, 0.3, 0.3))
-    cube.set_position(0, 0.5, 0)
-    cube.set_scale(1, 1, 1)
-    cube.set_roughness(0.5)
-    cube.set_metallic(0.0)
-    cube.set_ao(1.0)
-    scene.add(cube)
-
-    spiderman = GLBObject(load_model,ctx, program, "models/spiderman.glb")
-    spiderman.set_position(2, 0, 0)
-    spiderman.set_scale(1.5, 1.5, 1.5)
-    spiderman.set_rotation(-np.pi / 2, 0, 0)
-    scene.add(spiderman)
-
-    # ================= FLOOR =================
-
-    floor = Plane(ctx, program, size=config.FLOOR_SIZE, color=(0.2, 0.2, 0.5))
-    floor.set_position(0, -0.5, 0)
-    floor.set_roughness(0.9)
-    floor.set_metallic(0.0)
-    floor.set_ao(1.0)
-    floor.physics_enabled = False
-    floor.gravity_enabled = False
-    floor.mass = 0.0
-    floor.collidable = True
-    floor.collider_half_size = Vector3((config.FLOOR_SIZE * 0.5, 0.1, config.FLOOR_SIZE * 0.5))
-    scene.add(floor)
+   
     # ================= LIGHTING =================
 
     sun = DirectionalLight(

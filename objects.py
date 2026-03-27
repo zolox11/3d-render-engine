@@ -1,6 +1,7 @@
 import numpy as np
 from pyrr import Matrix44, Vector3
 import moderngl
+from terrain import Terrain as TerrainCore  # Import your terrain system from terrain.py
 
 # -------------------------
 # Material System
@@ -165,6 +166,9 @@ class GLBObject(Object3D):
 
     def render(self, program, proj, view):
         # GLB uses texture-based PBR
+
+        if "u_is_terrain" in program:
+            program["u_is_terrain"].value = False
         if "u_use_color" in program:
             program["u_use_color"].value = False
 
@@ -185,48 +189,66 @@ class GLBObject(Object3D):
 # Cube Primitive
 # -------------------------
 class Cube(Object3D):
-    def __init__(self, ctx, program, color=(1.0, 1.0, 1.0)):
+    def __init__(self, ctx, program, color=(1.0, 1.0, 1.0), texture_path=None, tiling=1.0):
         super().__init__(None)
         self.ctx = ctx
         self.program = program
         self.color = np.array(color, dtype='f4')
+        self.tiling = tiling
 
-        # 1x1 color texture for compatibility
-        color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
-        self.texture = ctx.texture((1, 1), 4, color_bytes)
+        # Load texture if provided, otherwise use color
+        if texture_path:
+            try:
+                from PIL import Image
+                img = Image.open(texture_path).convert("RGBA")
+                self.texture = ctx.texture(img.size, 4, img.tobytes())
+                self.texture.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+                self.texture.repeat_x = True
+                self.texture.repeat_y = True
+                self.texture.build_mipmaps()
+                self.use_texture = True
+            except Exception as e:
+                print(f"Failed to load texture {texture_path}: {e}, using color")
+                color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
+                self.texture = ctx.texture((1, 1), 4, color_bytes)
+                self.use_texture = False
+        else:
+            color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
+            self.texture = ctx.texture((1, 1), 4, color_bytes)
+            self.use_texture = False
 
         # Positions (3f), Normals (3f), UVs (2f), Tangents (3f)
         vertices = np.array([
             # Back face (Z = -1)
-            -1, -1, -1,  0,  0, -1,  0, 0,  1, 0, 0,
-             1, -1, -1,  0,  0, -1,  1, 0,  1, 0, 0,
-             1,  1, -1,  0,  0, -1,  1, 1,  1, 0, 0,
-            -1,  1, -1,  0,  0, -1,  0, 1,  1, 0, 0,
+            -1, -1, -1,  0,  0, -1,  0*self.tiling, 0*self.tiling,  1, 0, 0,
+             1, -1, -1,  0,  0, -1,  1*self.tiling, 0*self.tiling,  1, 0, 0,
+             1,  1, -1,  0,  0, -1,  1*self.tiling, 1*self.tiling,  1, 0, 0,
+            -1,  1, -1,  0,  0, -1,  0*self.tiling, 1*self.tiling,  1, 0, 0,
             # Front face (Z = +1)
-            -1, -1,  1,  0,  0,  1,  0, 0, -1, 0, 0,
-             1, -1,  1,  0,  0,  1,  1, 0, -1, 0, 0,
-             1,  1,  1,  0,  0,  1,  1, 1, -1, 0, 0,
-            -1,  1,  1,  0,  0,  1,  0, 1, -1, 0, 0,
+            -1, -1,  1,  0,  0,  1,  0*self.tiling, 0*self.tiling, -1, 0, 0,
+             1, -1,  1,  0,  0,  1,  1*self.tiling, 0*self.tiling, -1, 0, 0,
+             1,  1,  1,  0,  0,  1,  1*self.tiling, 1*self.tiling, -1, 0, 0,
+            -1,  1,  1,  0,  0,  1,  0*self.tiling, 1*self.tiling, -1, 0, 0,
             # Left face (X = -1)
-            -1, -1, -1, -1,  0,  0,  0, 0,  0, 0, -1,
-            -1, -1,  1, -1,  0,  0,  1, 0,  0, 0, -1,
-            -1,  1,  1, -1,  0,  0,  1, 1,  0, 0, -1,
-            -1,  1, -1, -1,  0,  0,  0, 1,  0, 0, -1,
+            -1, -1, -1, -1,  0,  0,  0*self.tiling, 0*self.tiling,  0, 0, -1,
+            -1, -1,  1, -1,  0,  0,  1*self.tiling, 0*self.tiling,  0, 0, -1,
+            -1,  1,  1, -1,  0,  0,  1*self.tiling, 1*self.tiling,  0, 0, -1,
+            -1,  1, -1, -1,  0,  0,  0*self.tiling, 1*self.tiling,  0, 0, -1,
             # Right face (X = +1)
-             1, -1, -1,  1,  0,  0,  0, 0,  0, 0,  1,
-             1, -1,  1,  1,  0,  0,  1, 0,  0, 0,  1,
-             1,  1,  1,  1,  0,  0,  1, 1,  0, 0,  1,
-             1,  1, -1,  1,  0,  0,  0, 1,  0, 0,  1,
+             1, -1, -1,  1,  0,  0,  0*self.tiling, 0*self.tiling,  0, 0,  1,
+             1, -1,  1,  1,  0,  0,  1*self.tiling, 0*self.tiling,  0, 0,  1,
+             1,  1,  1,  1,  0,  0,  1*self.tiling, 1*self.tiling,  0, 0,  1,
+             1,  1, -1,  1,  0,  0,  0*self.tiling, 1*self.tiling,  0, 0,  1,
             # Top face (Y = +1)
-            -1,  1, -1,  0,  1,  0,  0, 0,  1, 0, 0,
-             1,  1, -1,  0,  1,  0,  1, 0,  1, 0, 0,
-             1,  1,  1,  0,  1,  0,  1, 1,  1, 0, 0,
-            -1,  1,  1,  0,  1,  0,  0, 1,  1, 0, 0,
+            -1,  1, -1,  0,  1,  0,  0*self.tiling, 0*self.tiling,  1, 0, 0,
+             1,  1, -1,  0,  1,  0,  1*self.tiling, 0*self.tiling,  1, 0, 0,
+             1,  1,  1,  0,  1,  0,  1*self.tiling, 1*self.tiling,  1, 0, 0,
+            -1,  1,  1,  0,  1,  0,  0*self.tiling, 1*self.tiling,  1, 0, 0,
             # Bottom face (Y = -1)
-            -1, -1, -1,  0, -1,  0,  0, 0,  1, 0, 0,
-             1, -1, -1,  0, -1,  0,  1, 0,  1, 0, 0,
-             1, -1,  1,  0, -1,  0,  1, 1,  1, 0, 0,
-            -1, -1,  1,  0, -1,  0,  0, 1,  1, 0, 0,
+            -1, -1, -1,  0, -1,  0,  0*self.tiling, 0*self.tiling,  1, 0, 0,
+             1, -1, -1,  0, -1,  0,  1*self.tiling, 0*self.tiling,  1, 0, 0,
+             1, -1,  1,  0, -1,  0,  1*self.tiling, 1*self.tiling,  1, 0, 0,
+            -1, -1,  1,  0, -1,  0,  0*self.tiling, 1*self.tiling,  1, 0, 0,
         ], dtype='f4')
 
         indices = np.array([
@@ -257,10 +279,13 @@ class Cube(Object3D):
 
     def render(self, program, proj, view):
         self.texture.use(location=0)
+
+        if "u_is_terrain" in program:
+            program["u_is_terrain"].value = False
         
         if "u_use_color" in program:
-            program["u_use_color"].value = True
-        if "u_color" in program:
+            program["u_use_color"].value = not self.use_texture
+        if "u_color" in program and not self.use_texture:
             program["u_color"].value = tuple(self.color)
 
         # Apply per-object material properties
@@ -291,15 +316,33 @@ class Cube(Object3D):
 # Plane Primitive
 # -------------------------
 class Plane(Object3D):
-    def __init__(self, ctx, program, size=100.0, color=(0.2, 0.2, 0.2)):
+    def __init__(self, ctx, program, size=100.0, color=(0.2, 0.2, 0.2), texture_path=None, tiling=1.0):
         super().__init__(None)
         self.ctx = ctx
         self.program = program
         self.color = np.array(color, dtype='f4')
+        self.tiling = tiling
 
-        # Create a solid color texture for the plane
-        color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
-        self.texture = ctx.texture((1, 1), 4, color_bytes)
+        # Load texture if provided, otherwise use color
+        if texture_path:
+            try:
+                from PIL import Image
+                img = Image.open(texture_path).convert("RGBA")
+                self.texture = ctx.texture(img.size, 4, img.tobytes())
+                self.texture.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+                self.texture.repeat_x = True
+                self.texture.repeat_y = True
+                self.texture.build_mipmaps()
+                self.use_texture = True
+            except Exception as e:
+                print(f"Failed to load texture {texture_path}: {e}, using color")
+                color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
+                self.texture = ctx.texture((1, 1), 4, color_bytes)
+                self.use_texture = False
+        else:
+            color_bytes = (np.array(list(color) + [1.0]) * 255).astype('u1').tobytes()
+            self.texture = ctx.texture((1, 1), 4, color_bytes)
+            self.use_texture = False
         
         # Create dummy metallic/roughness texture (1x1, RGBA)
         dummy_mr = np.array([[0, 200, 255, 255]], dtype='u1')
@@ -316,10 +359,10 @@ class Plane(Object3D):
         # Plane vertices
         res = size / 2.0
         vertices = np.array([
-            -size, 0, -size,  0, 1, 0,  0,   res,  1, 0, 0,
-             size, 0, -size,  0, 1, 0,  res, res,  1, 0, 0,
-             size, 0,  size,  0, 1, 0,  res, 0,    1, 0, 0,
-            -size, 0,  size,  0, 1, 0,  0,   0,    1, 0, 0,
+            -size, 0, -size,  0, 1, 0,  0*res*self.tiling,   res*self.tiling,  1, 0, 0,
+             size, 0, -size,  0, 1, 0,  res*self.tiling, res*self.tiling,  1, 0, 0,
+             size, 0,  size,  0, 1, 0,  res*self.tiling, 0*self.tiling,    1, 0, 0,
+            -size, 0,  size,  0, 1, 0,  0*res*self.tiling,   0*self.tiling,    1, 0, 0,
         ], dtype='f4')
 
         indices = np.array([
@@ -348,13 +391,17 @@ class Plane(Object3D):
         self.mr_texture.use(location=1)  # Metallic/Roughness
         self.normal_texture.use(location=2)  # Normal
         self.emissive_texture.use(location=3)  # Emissive
+
+        if "u_is_terrain" in program:
+            program["u_is_terrain"].value = False
         
         if "u_use_color" in program:
-            program["u_use_color"].value = True
-        if "u_color" in program:
+            program["u_use_color"].value = not self.use_texture
+        if "u_color" in program and not self.use_texture:
             program["u_color"].value = tuple(self.color)
 
         # Apply per-object material properties
+        
         if "u_roughness_override" in program:
             program["u_roughness_override"].value = self.material.roughness
         if "u_metallic_override" in program:
@@ -373,6 +420,68 @@ class Plane(Object3D):
             program["model"].write(model_matrix.astype("f4").tobytes())
 
         self.vao.render()
+
+class TerrainObject(Object3D):
+    def __init__(
+        self,
+        ctx,
+        program,
+        heightmap_path,
+        size=100.0,
+        height_scale=20.0,
+        resolution=1,
+        texture_tiling=20.0
+    ):
+        super().__init__(None)
+
+        # Use your terrain.py system
+        self.terrain = TerrainCore(
+            ctx,
+            program,
+            heightmap_path,
+            size=size,
+            height_scale=height_scale,
+            resolution=resolution,
+            texture_tiling=texture_tiling
+        )
+
+        # Sync physics
+        self.collidable = True
+        self.collider_half_size = Vector3((size, height_scale, size))
+
+    # -------------------------
+    # HEIGHT ACCESS (IMPORTANT)
+    # -------------------------
+    def get_height_at(self, x, z):
+        return self.terrain.get_height_at(x, z)
+
+    # -------------------------
+    # LOD UPDATE
+    # -------------------------
+    def update(self, camera_pos):
+        self.terrain.update_lod(camera_pos)
+
+    # -------------------------
+    # RENDER
+    # -------------------------
+    def render(self, program, proj, view):
+        # Apply Object3D transform → terrain
+        self.terrain.model_matrix = self.transform.get_matrix()
+
+        if "u_is_terrain" in program:
+            program["u_is_terrain"].value = True
+
+        # Apply material overrides (same system as other objects)
+        if "u_roughness_override" in program:
+            program["u_roughness_override"].value = self.material.roughness
+        if "u_metallic_override" in program:
+            program["u_metallic_override"].value = self.material.metallic
+        if "u_emissive_override" in program:
+            program["u_emissive_override"].value = tuple(self.material.emissive)
+        if "u_ao_override" in program:
+            program["u_ao_override"].value = self.material.ao
+
+        self.terrain.render(program, proj, view)
 
 
 class SimpleModel:
