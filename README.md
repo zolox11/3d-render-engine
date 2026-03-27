@@ -11,6 +11,11 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
 ![Scene](snips/scene.png)
 ![Scene2](snips/scene2.png)
 
+### 🎮 Player Controller
+![Example](snips/scene3.png)
+
+### ⛰️ Terrain
+![Terrain](snips/terrain.png)
 
 ---
 
@@ -49,7 +54,7 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
 - Smooth Gravity
 - Penentration
 
-### Player Controller
+### 🎮 Player Controller
 - WASD + Mouse Movement and Camera
 - First Person Controller
 - Smooth Jumping Physics
@@ -62,6 +67,16 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
 - Mouse look
 - Gamepad support (experimental)
 - Smooth movement handling
+
+### ⛰️ Terrain
+- Heightmap to mesh
+- Textures
+- Auto terrain painter
+
+## How to view terrain?
+- Go to scene.py, change terrain_toggle to True
+- Go to player.py, in __init__ change self.orbit_mode to True
+- To go back to normal, just change both of them back to False
 
 ### ⚙️ Engine Architecture
 - Modular render pipeline:

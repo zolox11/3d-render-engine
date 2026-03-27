@@ -63,3 +63,16 @@ what i want to make -
 - adding player controller - done, took way too long, had to revamp the physics system a lot of times.
 - improving player controller - done, added more configuration, jumping, sprinting.
 - improving physics - done, it felt like i was floating when i jumped, so i added realistic and smooth mass gravity.
+
+- Finished : version 5 is just physics, very important in a game engine.
+
+version 6 - 
+
+what i want to make -
+- terrain system - done, made terrain.py, it turns heightmap into a mesh, added the object in objects.py too
+- added textures to terrain and objects - done, terrain uses a seperate type of shaders in fragment and objects too, it would be more efficient to make terrain a seperate shader but it's fine for now.
+- made advanced auto texturer - done, created texture.py, it uses slopes and heights to paint textures onto the terrain like snow, sand, grass and rock, looks pretty good
+- small updates - updated fragment shaders, made orbit camera better, and some small updates.
+
+- Finished : version 6 is just terrain and shaders.
+
