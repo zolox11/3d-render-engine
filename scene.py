@@ -40,12 +40,24 @@ def init_scene(ctx, program, config):
         tree.collider_half_size = Vector3((1.5, 3.0, 1.5))
         scene.add(tree)
 
+        # Platformer
+        def makecube(position,scale):
+            cube = Cube(ctx,program,color=(0.5,0.5,0.5))
+            cube.set_position(position[0],position[1],position[2])
+            cube.set_scale(scale[0],scale[1],scale[2])
+            cube.collidable = True
+            cube.collider_half_size = Vector3((scale[0]/5,scale[1]/5,scale[2]/5))
+            scene.add(cube)
+        
+        makecube([0,0.9,10], [0.5,0.1,0.5])
 
         floor = Plane(ctx,program,size=config.FLOOR_SIZE,texture_path="textures/grass.png", tiling=1.0)
         floor.set_position(0,-0.5,0)
         floor.set_roughness(1)
         floor.set_metallic(0)
         floor.set_ao(0.4)
+        floor.physics_enabled = False
+        floor.mass = 0.0
         floor.collidable = True
         floor.collider_half_size = Vector3((config.FLOOR_SIZE * 0.5, 0.5, config.FLOOR_SIZE * 0.5))
         scene.add(floor)

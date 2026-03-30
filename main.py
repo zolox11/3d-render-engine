@@ -402,12 +402,19 @@ class Application:
 
         # Initialize physics engine and player controller
         self.physics_engine = PhysicsEngine()
-        self.player = PlayerController(self.camera, self.physics_engine, self.scene, start_position=(0.0, 50, 5.0))
+        self.player = PlayerController(self.camera, self.physics_engine, self.scene, start_position=(0.0, 100,5.0))
         
         # register all scene objects once at startup
         self.physics_engine.load_scene(self.scene)
         # register the player in physics engine
         self.physics_engine.register_body(self.player.body)
+
+        print("Static bodies:", len(self.physics_engine.static_bodies))
+        for b in self.physics_engine.static_bodies:
+            print("STATIC:", b)
+        print("Dynamic bodies:", len(self.physics_engine.dynamic_bodies))
+        for b in self.physics_engine.dynamic_bodies:
+            print("DYNAMIC:", b)
 
     def handle_events(self):
         """Process input events"""
