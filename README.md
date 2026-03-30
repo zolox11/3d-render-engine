@@ -101,29 +101,6 @@ Designed with a modular architecture, real-time lighting, PBR materials, and sha
 
 ---
 
-## 📁 Project Structure
-
-.
-├── main.py
-├── camera.py
-├── loader.py
-├── objects.py
-├── scene.py
-│
-├── shaders/
-│   ├── vertex.txt
-│   ├── fragment.txt
-│   ├── shadow_vertex.glsl
-│   ├── shadow_fragment.glsl
-│   ├── grid_vertex.glsl
-│   └── grid_fragment.glsl
-│
-├── models/
-├── snips/
-└── README.md
-
----
-
 ## ⚡ Getting Started
 
 ### 1. Clone the repository
