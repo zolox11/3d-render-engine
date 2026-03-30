@@ -366,9 +366,9 @@ class Application:
         self.ctx = moderngl.create_context()
         
         # Load shaders
-        with open('shaders/vertex.txt', 'r') as f:
+        with open('shaders/vertex.glsl', 'r') as f:
             vertex_shader = f.read()
-        with open('shaders/fragment.txt', 'r') as f:
+        with open('shaders/fragment.glsl', 'r') as f:
             fragment_shader = f.read()
         
         with open('shaders/grid_vertex.glsl', 'r') as f:
